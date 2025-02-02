@@ -1,7 +1,10 @@
 #include "raymob.h"
 #include "raymath.h"
 #include <array>
-
+#include <string>
+#include <cmath>
+#include <iomanip>
+#include <sstream>
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
@@ -70,6 +73,7 @@ struct Band
     Rectangle body;
     Color color;
     bool focused;
+    uint8_t value;
 };
 
 
@@ -113,6 +117,10 @@ public:
 
         DrawRectangleRounded((Rectangle){adjustedPos.x, adjustedPos.y, adjustedWidth, adjustedHeight}, 1, 0, Fade(color, 0.8));
     }
+
+    Color getColor() const {
+        return color;
+    }
 };
 
 
@@ -129,9 +137,6 @@ void drawResistor()
     // body
     DrawRectangleRounded(body, 0.15, 0, Fade(bgColor, 0.5));
 
-    // screen
-    DrawRectangleRounded((Rectangle){ 275, 400, 375, 200 }, 0.25, 0, LIGHTGRAY);
-
     static std::array<Button, 10> buttons = {
             (Button){(Vector2){100, 650}, BLACK},
             (Button){(Vector2){300, 650}, BROWN},
@@ -146,19 +151,97 @@ void drawResistor()
     };
 
     static std::array<Band, 4> bands = {
-            (Band){(Rectangle){ body.x + 50, body.y, 70, body.height }, BLACK, false},
-            (Band){(Rectangle){ body.x + 160, body.y, 70, body.height }, BLACK, false},
-            (Band){(Rectangle){ body.x + 270, body.y, 70, body.height }, BLACK, false},
-            (Band){(Rectangle){ body.width - 35, body.y, 70, body.height }, BLACK, false}
+            (Band){(Rectangle){ body.x + 50, body.y, 70, body.height }, Fade(DARKGRAY, 0.5), false},
+            (Band){(Rectangle){ body.x + 160, body.y, 70, body.height }, Fade(DARKGRAY, 0.5), false},
+            (Band){(Rectangle){ body.x + 270, body.y, 70, body.height }, Fade(DARKGRAY, 0.5), false},
+            (Band){(Rectangle){ body.width - 35, body.y, 70, body.height }, Fade(DARKGRAY, 0.5), false}
     };
 
+    static Band* focusedBand = nullptr;
+
     for (auto& band : bands) {
-        DrawRectangleRec(band.body, Fade(band.color, 0.65));
+
+        if (CheckCollisionPointRec(GetMousePosition(), band.body) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            if (band.focused) {
+                band.color = Fade(DARKGRAY, 0.5);
+                band.focused = false;
+            }
+            else {
+                focusedBand = &band;
+                band.focused = true;
+                for (auto& b : bands) {
+                    if (&b == &band) continue;
+                    else b.focused = false;
+                }
+            }
+        }
+
+        DrawRectangleRec(band.body, Fade(band.color, 0.8));
+
+        if (band.focused) {
+            DrawRectangleLinesEx(band.body, 10, Fade(YELLOW, 1));
+        }
     }
 
-    for (auto& button : buttons) {
-        button.draw();
+    for (uint8_t i = 0; i < buttons.size(); i++) {
+
+        if (focusedBand != nullptr && buttons[i].isClicked()) {
+            focusedBand->value = i;
+            focusedBand->color = buttons[i].getColor();
+        }
+
+        buttons[i].draw();
     }
+
+    static std::string current = "NaN";
+    static std::string resistance = "NaN";
+
+    if (ColorIsEqual(bands[0].color, Fade(DARKGRAY, 0.5)) ||
+        ColorIsEqual(bands[1].color, Fade(DARKGRAY, 0.5)) ||
+        ColorIsEqual(bands[2].color, Fade(DARKGRAY, 0.5))) {
+            current = "NaN";
+    }
+    else {
+        std::string firstDigit = std::to_string(bands[0].value);
+        std::string secondDigit = std::to_string(bands[1].value);
+        uint8_t base = std::stoi(firstDigit + secondDigit);
+        auto multiplier = (uint64_t)std::pow(10, bands[2].value);
+        uint64_t result = base * multiplier;
+
+        if (result < 1000) current = std::to_string(result);
+        else {
+            const std::array<std::string, 5> suffixes = { "", "k", "M", "B", "T" };
+            uint8_t suffixIndex = 0;
+            auto num = (double)result;
+
+            while (num >= 1000 && suffixIndex < 4) {
+                num /= 1000;
+                suffixIndex++;
+            }
+
+            std::ostringstream out;
+            out << std::fixed << std::setprecision(2) << num;
+            current = out.str() + suffixes[suffixIndex];
+        }
+    }
+
+    if (ColorIsEqual(bands[3].color, WHITE)) {
+        resistance = "10%";
+    }
+    else if (ColorIsEqual(bands[3].color, YELLOW)) {
+        resistance = "5%";
+    }
+    else if (ColorIsEqual(bands[3].color, Fade(DARKGRAY, 0.5))) {
+        resistance = "25%";
+    }
+    else {
+        resistance = "NaN";
+    }
+
+    // screen
+    DrawRectangleRounded((Rectangle){ 275, 400, 375, 200 }, 0.25, 0, LIGHTGRAY);
+    DrawText(current.c_str(), 300, 420, 64, WHITE);
+    DrawText(resistance.c_str(), 300, 500, 64, WHITE);
 }
 
 
