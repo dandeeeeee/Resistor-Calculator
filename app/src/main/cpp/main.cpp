@@ -73,33 +73,48 @@ struct Band
 };
 
 
-struct Circle
-{
-    Vector2 center;
-    float radius;
-};
-
-
-class Button
-{
+class Button {
 private:
-    Circle body;
+    Rectangle body;
     Color color;
     bool clicked;
+    float shrinkFactor;
+    const float shrinkAmount = 10.0f;
 
 public:
     Button(Vector2 pos, Color col)
-        : color(col)
-    {
-        body = (Circle){pos, 5};
+            : color(col), clicked(false), shrinkFactor(0.0f) {
+        body = (Rectangle){pos.x, pos.y, 120, 120};
     }
 
-    bool isClicked() const
-    {
-        return CheckCollisionPointCircle(GetMousePosition(), body.center, body.radius) &&
-                IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+    bool isClicked() const {
+        return CheckCollisionPointRec(GetMousePosition(), body) &&
+               IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+    }
+
+    void draw() {
+        Vector2 adjustedPos = {body.x, body.y};
+        float adjustedWidth = body.width;
+        float adjustedHeight = body.height;
+
+        if (isClicked()) {
+            clicked = true;
+            shrinkFactor = shrinkAmount;
+        }
+        else {
+            clicked = false;
+            shrinkFactor = 0.0f;
+        }
+
+        adjustedWidth -= shrinkFactor;
+        adjustedHeight -= shrinkFactor;
+        adjustedPos.x += shrinkFactor / 2;
+        adjustedPos.y += shrinkFactor / 2;
+
+        DrawRectangleRounded((Rectangle){adjustedPos.x, adjustedPos.y, adjustedWidth, adjustedHeight}, 1, 0, Fade(color, 0.8));
     }
 };
+
 
 void drawResistor()
 {
@@ -114,17 +129,20 @@ void drawResistor()
     // body
     DrawRectangleRounded(body, 0.15, 0, Fade(bgColor, 0.5));
 
-    constexpr std::array<Color, 10> colors = {
-            BLACK,
-            BROWN,
-            RED,
-            ORANGE,
-            YELLOW,
-            GREEN,
-            BLUE,
-            VIOLET,
-            GRAY,
-            WHITE,
+    // screen
+    DrawRectangleRounded((Rectangle){ 275, 400, 375, 200 }, 0.25, 0, LIGHTGRAY);
+
+    static std::array<Button, 10> buttons = {
+            (Button){(Vector2){100, 650}, BLACK},
+            (Button){(Vector2){300, 650}, BROWN},
+            (Button){(Vector2){500, 650}, RED},
+            (Button){(Vector2){100, 850}, ORANGE},
+            (Button){(Vector2){300, 850}, YELLOW},
+            (Button){(Vector2){500, 850}, GREEN},
+            (Button){(Vector2){100, 1050}, BLUE},
+            (Button){(Vector2){300, 1050}, VIOLET},
+            (Button){(Vector2){500, 1050}, GRAY},
+            (Button){(Vector2){100, 450}, WHITE}
     };
 
     static std::array<Band, 4> bands = {
@@ -134,11 +152,13 @@ void drawResistor()
             (Band){(Rectangle){ body.width - 35, body.y, 70, body.height }, BLACK, false}
     };
 
-    for (auto& band : bands){
+    for (auto& band : bands) {
         DrawRectangleRec(band.body, Fade(band.color, 0.65));
     }
 
-
+    for (auto& button : buttons) {
+        button.draw();
+    }
 }
 
 
