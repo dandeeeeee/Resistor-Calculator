@@ -1,10 +1,13 @@
 #include "raymob.h"
 #include "raymath.h"
+#include <array>
 
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
-const Color bgColor = (Color){16, 20, 44, 255};
+constexpr Color bgColor = (Color){16, 20, 44, 255};
+constexpr uint16_t gameScreenWidth = 720;
+constexpr uint16_t gameScreenHeight = 1280;
 
 
 const char* vertexShader = R"(
@@ -39,14 +42,14 @@ float message(vec2 uv) {
     uv -= vec2(1.0, 10.0);
     if (uv.x < 0.0 || uv.x >= 32.0 || uv.y < 0.0 || uv.y >= 3.0) return -1.0;
 
-    float bit = pow(2.0, floor(32.0 - uv.x));  // Ensure floating-point math
+    float bit = pow(2.0, floor(32.0 - uv.x));
     float i = 1.0;
 
     if (int(uv.y) == 2) i = float(928473456) / bit;
     if (int(uv.y) == 1) i = float(626348112) / bit;
     if (int(uv.y) == 0) i = float(1735745872) / bit;
 
-    return mod(i, 2.0);  // Use mod() instead of integer subtraction
+    return mod(i, 2.0);
 }
 
 void main() {
@@ -62,18 +65,93 @@ void main() {
 )";
 
 
+struct Band
+{
+    Rectangle body;
+    Color color;
+    bool focused;
+};
+
+
+struct Circle
+{
+    Vector2 center;
+    float radius;
+};
+
+
+class Button
+{
+private:
+    Circle body;
+    Color color;
+    bool clicked;
+
+public:
+    Button(Vector2 pos, Color col)
+        : color(col)
+    {
+        body = (Circle){pos, 5};
+    }
+
+    bool isClicked() const
+    {
+        return CheckCollisionPointCircle(GetMousePosition(), body.center, body.radius) &&
+                IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+    }
+};
+
+void drawResistor()
+{
+    constexpr Rectangle body = (Rectangle){ 80, 75, gameScreenWidth - 160, 250 };
+
+    // left leg
+    DrawRectangle(10, (int)(body.y + body.height / 2) - 25, (int)body.x - 30, 50, Fade(RAYWHITE, 0.5));
+    // right leg
+    DrawRectangle((int)body.width + 100, (int)(body.y + body.height / 2) - 25, (int)body.x - 30, 50, Fade(RAYWHITE, 0.5));
+    // outline
+    DrawRectangleRoundedLinesEx(body, 0.15, 0, 20, Fade(RAYWHITE, 0.5));
+    // body
+    DrawRectangleRounded(body, 0.15, 0, Fade(bgColor, 0.5));
+
+    constexpr std::array<Color, 10> colors = {
+            BLACK,
+            BROWN,
+            RED,
+            ORANGE,
+            YELLOW,
+            GREEN,
+            BLUE,
+            VIOLET,
+            GRAY,
+            WHITE,
+    };
+
+    static std::array<Band, 4> bands = {
+            (Band){(Rectangle){ body.x + 50, body.y, 70, body.height }, BLACK, false},
+            (Band){(Rectangle){ body.x + 160, body.y, 70, body.height }, BLACK, false},
+            (Band){(Rectangle){ body.x + 270, body.y, 70, body.height }, BLACK, false},
+            (Band){(Rectangle){ body.width - 35, body.y, 70, body.height }, BLACK, false}
+    };
+
+    for (auto& band : bands){
+        DrawRectangleRec(band.body, Fade(band.color, 0.65));
+    }
+
+
+}
+
+
 
 int main()
 {
     InitWindow(0, 0, "RESISTORR");
     SetTargetFPS(60);
 
-    const uint16_t gameScreenWidth = 720;
-    const uint16_t gameScreenHeight = 1280;
     RenderTexture2D target = LoadRenderTexture(gameScreenWidth, gameScreenHeight);
     SetTextureFilter(target.texture, TEXTURE_FILTER_BILINEAR);
 
-    Texture2D resistor = LoadTexture("resistor.png");
+    //Texture2D resistor = LoadTexture("resistor.png");
 
     Shader shader = LoadShaderFromMemory(vertexShader, fragmentShader);
 
@@ -114,11 +192,14 @@ int main()
 
         ClearBackground(BLANK);
 
-        DrawRectangleRounded((Rectangle){10, 0, (float)gameScreenWidth - 20, (float)gameScreenHeight}, 0.15, 0, Fade(bgColor, 0.9));
+        DrawRectangleRounded((Rectangle){10, 0, (float)gameScreenWidth - 20, (float)gameScreenHeight},
+                             0.15, 0, Fade(bgColor, 0.8));
 
 
-        DrawTexturePro(resistor, (Rectangle){0, 0, (float)resistor.width, (float)resistor.height},
-                       (Rectangle){35, 0, 650, 400}, Vector2Zero(), 0, WHITE);
+        //DrawTexturePro(resistor, (Rectangle){0, 0, (float)resistor.width, (float)resistor.height},
+        //               (Rectangle){35, 0, 650, 400}, Vector2Zero(), 0, WHITE);
+
+        drawResistor();
 
         EndTextureMode();
 
@@ -135,14 +216,16 @@ int main()
         EndShaderMode();
 
         DrawTexturePro(target.texture, (Rectangle){ 0.0f, 0.0f, (float)target.texture.width, (float)-target.texture.height },
-                       (Rectangle){ ((float)GetScreenWidth() - ((float)gameScreenWidth*scale))*0.5f, ((float)GetScreenHeight() - ((float)gameScreenHeight*scale))*0.5f,
-                                    (float)gameScreenWidth*scale, (float)gameScreenHeight*scale }, (Vector2){ 0, 0 }, 0.0f, WHITE);
+                       (Rectangle){((float)GetScreenWidth() - ((float)gameScreenWidth*scale))*0.5f,
+                                   ((float)GetScreenHeight() - ((float)gameScreenHeight*scale))*0.5f,
+                                   (float)gameScreenWidth*scale, (float)gameScreenHeight*scale},
+                                   (Vector2){ 0, 0 }, 0.0f, WHITE);
 
         EndDrawing();
     }
 
     UnloadShader(shader);
-    UnloadTexture(resistor);
+    //UnloadTexture(resistor);
     CloseWindow();
     return 0;
 }
