@@ -124,6 +124,9 @@ public:
 };
 
 
+Font globalFont;
+
+
 void drawResistor()
 {
     constexpr Rectangle body = (Rectangle){ 80, 75, gameScreenWidth - 160, 250 };
@@ -219,9 +222,14 @@ void drawResistor()
                 suffixIndex++;
             }
 
-            std::ostringstream out;
-            out << std::fixed << std::setprecision(2) << num;
-            current = out.str() + suffixes[suffixIndex];
+            if (num == std::floor(num)) {
+                current = std::to_string((int)num) + suffixes[suffixIndex];
+            }
+            else {
+                std::ostringstream out;
+                out << std::fixed << std::setprecision(2) << num;
+                current = out.str() + suffixes[suffixIndex];
+            }
         }
     }
 
@@ -239,9 +247,9 @@ void drawResistor()
     }
 
     // screen
-    DrawRectangleRounded((Rectangle){ 275, 400, 375, 200 }, 0.25, 0, LIGHTGRAY);
-    DrawText(current.c_str(), 300, 420, 64, WHITE);
-    DrawText(resistance.c_str(), 300, 500, 64, WHITE);
+    DrawRectangleRounded((Rectangle){ 275, 400, 375, 200 }, 0.25, 0, Fade(DARKGRAY, 0.5));
+    DrawTextEx(globalFont, current.c_str(), (Vector2){ 340, 400 }, 115, 0, Fade(WHITE, 0.8));
+    DrawTextEx(globalFont, resistance.c_str(), (Vector2){ 340, 480 }, 115, 0, Fade(WHITE, 0.8));
 }
 
 
@@ -262,6 +270,8 @@ int main()
         TraceLog(LOG_ERROR, "Shader failed to load!");
         return -1;
     }
+
+    globalFont = LoadFontEx("Cubano.ttf", 126, NULL, 0);
 
     int resolutionLoc = GetShaderLocation(shader, "resolution");
     int iTimeLoc = GetShaderLocation(shader, "iTime");
@@ -327,8 +337,9 @@ int main()
         EndDrawing();
     }
 
+    UnloadFont(globalFont);
     UnloadShader(shader);
-    //UnloadTexture(resistor);
+    UnloadRenderTexture(target);
     CloseWindow();
     return 0;
 }
